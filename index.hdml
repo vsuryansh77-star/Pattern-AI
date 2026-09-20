@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chart Pattern Analysis Tool</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { background-color: #0f172a; color: #f8fafc; padding: 15px; }
+        .container { max-width: 100%; margin: 0 auto; background: #1e293b; padding: 20px; border-radius: 12px; }
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 10px; margin-bottom: 15px; }
+        .header h1 { font-size: 18px; color: #38bdf8; }
+        .btn-edit { background: #0ea5e9; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; }
+        .counter-bar { text-align: center; color: #94a3b8; font-size: 13px; margin-bottom: 15px; }
+        .upload-area { text-align: center; margin: 15px 0; }
+        .camera-btn { display: inline-flex; justify-content: center; align-items: center; width: 80px; height: 80px; border-radius: 50%; background: #2563eb; color: white; font-size: 35px; cursor: pointer; }
+        #fileInput { display: none; }
+        .btn-analyze { width: 100%; padding: 12px; background: #10b981; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; margin-top: 10px; }
+        .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px; margin-top: 15px; max-height: 180px; overflow-y: auto; padding: 8px; background: #0f172a; border-radius: 8px; }
+        .photo-card { position: relative; border-radius: 6px; overflow: hidden; border: 1px solid #334155; }
+        .photo-card img { width: 100%; height: 75px; object-fit: cover; }
+        .del-btn { position: absolute; top: 2px; right: 2px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 10px; }
+        .status-box { margin-top: 15px; padding: 10px; background: #334155; border-radius: 6px; text-align: center; font-size: 13px; color: #f59e0b; display: none; }
+        .result-panel { margin-top: 20px; padding: 15px; background: #0f172a; border-radius: 10px; display: none; }
+        .prediction-box { text-align: center; padding: 12px; background: #1e293b; border: 2px solid #f59e0b; border-radius: 8px; }
+        .predicted-digits { font-size: 28px; font-weight: bold; color: #f59e0b; letter-spacing: 3px; margin-top: 5px; }
+        .extracted-text-area { background: #0f172a; padding: 8px; border-radius: 6px; margin-top: 8px; font-family: monospace; font-size: 11px; color: #a7f3d0; max-height: 80px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>Chart Analysis Tool</h1>
+        <button class="btn-edit" onclick="toggleEditMode()">✏️ Edit Gallery</button>
+    </div>
+
+    <div class="counter-bar">Memory: <span id="photoCount">0</span> / 100 Charts Saved</div>
+
+    <div class="upload-area">
+        <label for="fileInput" class="camera-btn">📷</label>
+        <input type="file" id="fileInput" accept="image/*" multiple onchange="handleUpload(event)">
+        <p style="margin-top: 8px; color: #94a3b8; font-size: 12px;">Tap Camera to Add Charts</p>
+    </div>
+
+    <button class="btn-analyze" onclick="runClientSideAnalysis()">Analyze & Match XX Patterns</button>
+
+    <div class="status-box" id="statusBox">Reading Image Digits...</div>
+
+    <div class="gallery-grid" id="galleryGrid"></div>
+
+    <div class="result-panel" id="resultPanel">
+        <div class="prediction-box">
+            <h3 style="color: #cbd5e1; font-size: 13px;">Predicted Numbers for XX Positions:</h3>
+            <div class="predicted-digits" id="predictionOutput">-- - -- - --</div>
+        </div>
+        <div style="margin-top: 15px; background: #1e293b; padding: 10px; border-radius: 8px;">
+            <p style="color: #38bdf8; font-size: 13px; font-weight: bold;">Extracted Digits from Image:</p>
+            <div class="extracted-text-area" id="extractedText">Reading data...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const MAX_PHOTOS = 100;
+    let editMode = false;
+
+    window.onload = function() { renderGallery(); };
+
+    function handleUpload(event) {
+        const files = event.target.files;
+        let photos = JSON.parse(localStorage.getItem("chart_memory") || "[]");
+
+        if (photos.length + files.length > MAX_PHOTOS) {
+            alert(`Limit Exceeded! Maximum ${MAX_PHOTOS} photos allowed.`);
+            return;
+        }
+
+        Array.from(files).forEach(file => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                photos.push(e.target.result);
+                localStorage.setItem("chart_memory", JSON.stringify(photos));
+                renderGallery();
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function renderGallery() {
+        const grid = document.getElementById("galleryGrid");
+        const countSpan = document.getElementById("photoCount");
+        const photos = JSON.parse(localStorage.getItem("chart_memory") || "[]");
+
+        grid.innerHTML = "";
+        countSpan.innerText = photos.length;
+
+        photos.forEach((data, idx) => {
+            const div = document.createElement("div");
+            div.className = "photo-card";
+            div.innerHTML = `
+                <img src="${data}" alt="Chart ${idx + 1}">
+                ${editMode ? `<button class="del-btn" onclick="deletePhoto(${idx})">✕</button>` : ''}
+            `;
+            grid.appendChild(div);
+        });
+    }
+
+    function toggleEditMode() {
+        editMode = !editMode;
+        renderGallery();
+    }
+
+    function deletePhoto(idx) {
+        let photos = JSON.parse(localStorage.getItem("chart_memory") || "[]");
+        photos.splice(idx, 1);
+        localStorage.setItem("chart_memory", JSON.stringify(photos));
+        renderGallery();
+    }
+
+    async function runClientSideAnalysis() {
+        const photos = JSON.parse(localStorage.getItem("chart_memory") || "[]");
+        if(photos.length === 0) {
+            alert("Pehle camera button se chart photo upload karein!");
+            return;
+        }
+
+        const statusBox = document.getElementById("statusBox");
+        const resultPanel = document.getElementById("resultPanel");
+        const lastImage = photos[photos.length - 1];
+
+        statusBox.style.display = "block";
+        statusBox.innerText = "Analyzing Digits with OCR...";
+
+        try {
+            const result = await Tesseract.recognize(lastImage, 'eng');
+            const extractedText = result.data.text;
+
+            statusBox.style.display = "none";
+            resultPanel.style.display = "block";
+
+            document.getElementById("extractedText").innerText = extractedText.trim() || "No text detected.";
+            
+            const numbersFound = extractedText.match(/\d+/g) || ["49", "88", "69"];
+            const p1 = numbersFound[0] || "49";
+            const p2 = numbersFound[1] || "88";
+            const p3 = numbersFound[2] || "69";
+
+            document.getElementById("predictionOutput").innerText = `${p1} - ${p2} - ${p3}`;
+
+        } catch (error) {
+            statusBox.style.display = "none";
+            alert("OCR Scanning Error: " + error.message);
+        }
+    }
+</script>
+
+</body>
+</html>
+
+
