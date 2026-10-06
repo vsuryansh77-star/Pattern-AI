@@ -2,4 +2,4 @@ streamlit
 yt-dlp
 google-genai
 youtube-transcript-api
-Pillow।
+Pillow
