@@ -75,7 +75,7 @@ if st.button("🚀 जनरेट करें", type="primary"):
                 केवल 5 टाइटल्स की नंबर लिस्ट बनाकर दो。
                 """
                 response = client.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model='gemini-1.5-flash',
                     contents=prompt
                 )
 
